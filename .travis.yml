@@ -1,5 +1,7 @@
 language: ruby
 rvm:
+  - 2.4.5
+  - 2.5.3
   - 2.6.0
 before_install:
   - sudo apt-key adv --keyserver keys.gnupg.net --recv-keys 8507EFA5

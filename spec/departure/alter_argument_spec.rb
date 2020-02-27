@@ -31,6 +31,18 @@ describe Departure::AlterArgument do
         )
       end
     end
+
+    context 'when the ALTER TABLE contains double quotes it escapes them' do
+      let(:statement) do
+        'ALTER TABLE `comments` CHANGE `some_id` `some_id` INT(11) DEFAULT NULL COMMENT \'a"quote\''
+      end
+
+      it do
+        is_expected.to(
+          eq('--alter "CHANGE \`some_id\` \`some_id\` INT(11) DEFAULT NULL COMMENT \'a\\"quote\'"')
+        )
+      end
+    end
   end
 
   describe '#table_name' do

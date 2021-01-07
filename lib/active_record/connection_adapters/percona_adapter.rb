@@ -9,7 +9,10 @@ module ActiveRecord
     # Establishes a connection to the database that's used by all Active
     # Record objects.
     def percona_connection(config)
-      config[:username] = 'root' if config[:username].nil?
+      if config[:username].nil?
+        config = config.dup if config.frozen?
+        config[:username] = 'root'
+      end
       mysql2_connection = mysql2_connection(config)
 
       connection_details = Departure::ConnectionDetails.new(config)
@@ -75,7 +78,7 @@ module ActiveRecord
       end
 
       def write_query?(sql) # :nodoc:
-        !build_read_query_regexp(
+        !ActiveRecord::ConnectionAdapters::AbstractAdapter.build_read_query_regexp(
           :desc, :describe, :set, :show, :use
         ).match?(sql)
       end

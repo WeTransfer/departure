@@ -37,6 +37,7 @@ test_database = TestDatabase.new(db_config)
 
 RSpec.configure do |config|
   config.include TableMethods
+  config.filter_run_when_matching :focus
 
   ActiveRecord::Migration.verbose = false
 

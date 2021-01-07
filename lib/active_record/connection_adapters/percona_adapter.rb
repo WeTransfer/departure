@@ -65,10 +65,6 @@ module ActiveRecord
       end
 
       ADAPTER_NAME = 'Percona'.freeze
-      READ_QUERY = ActiveRecord::ConnectionAdapters::AbstractAdapter.build_read_query_regexp(
-        :desc, :describe, :set, :show, :use
-      )
-      private_constant :READ_QUERY
 
       def_delegators :mysql_adapter, :last_inserted_id, :each_hash, :set_field_encoding
 
@@ -78,8 +74,14 @@ module ActiveRecord
         @prepared_statements = false
       end
 
-      def write_query?(sql) # :nodoc:
-        !READ_QUERY.match?(sql)
+      if ActiveRecord::VERSION::STRING >= '6.1'
+        READ_QUERY = ActiveRecord::ConnectionAdapters::AbstractAdapter.build_read_query_regexp(
+          :desc, :describe, :set, :show, :use
+        )
+        private_constant :READ_QUERY
+        def write_query?(sql) # :nodoc:
+          !READ_QUERY.match?(sql)
+        end
       end
 
       def exec_delete(sql, name, binds)
@@ -127,17 +129,31 @@ module ActiveRecord
       # @param column_name [String, Symbol]
       # @param options [Hash] optional
       def add_index(table_name, column_name, options = {})
-        index_name, index_type, index_columns, index_options = add_index_options(table_name, column_name, options)
-        execute "ALTER TABLE #{quote_table_name(table_name)} ADD #{index_type} INDEX #{quote_column_name(index_name)} (#{index_columns})#{index_options}" # rubocop:disable Metrics/LineLength
+        if ActiveRecord::VERSION::STRING >= '6.1'
+          index, algorithm, if_not_exists = add_index_options(table_name, column_name, options)
+          create_index = CreateIndexDefinition.new(index, algorithm, if_not_exists)
+          execute schema_creation.accept(create_index)
+        else
+          index_name, index_type, index_columns, index_options = add_index_options(table_name, column_name, options)
+          execute "ALTER TABLE #{quote_table_name(table_name)} ADD #{index_type} INDEX #{quote_column_name(index_name)} (#{index_columns})#{index_options}" # rubocop:disable Metrics/LineLength
+        end
       end
 
       # Remove the given index from the table.
       #
       # @param table_name [String, Symbol]
       # @param options [Hash] optional
-      def remove_index(table_name, options = {})
-        index_name = index_name_for_remove(table_name, options)
-        execute "ALTER TABLE #{quote_table_name(table_name)} DROP INDEX #{quote_column_name(index_name)}"
+      if ActiveRecord::VERSION::STRING >= '6.1'
+        def remove_index(table_name, column_name = nil, **options)
+          return if options[:if_exists] && !index_exists?(table_name, column_name, **options)
+          index_name = index_name_for_remove(table_name, column_name, options)
+          execute "DROP INDEX #{quote_column_name(index_name)} ON #{quote_table_name(table_name)}"
+        end
+      else
+        def remove_index(table_name, options = {})
+          index_name = index_name_for_remove(table_name, options)
+          execute "ALTER TABLE #{quote_table_name(table_name)} DROP INDEX #{quote_column_name(index_name)}"
+        end
       end
 
       def schema_creation

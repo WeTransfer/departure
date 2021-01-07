@@ -20,10 +20,12 @@ describe ActiveRecord::ConnectionAdapters::DepartureAdapter do
     let(:collation) { double(:collation) }
 
     let(:column) do
-      if ActiveRecord::VERSION::MAJOR < 6
-        described_class.new(field, default, mysql_metadata, type, null, collation)
-      else
+      if ActiveRecord::VERSION::STRING >= "6.1"
+        described_class.new("field", "default", mysql_metadata, null, collation: "collation")
+      elsif ActiveRecord::VERSION::MAJOR == 6
         described_class.new(field, default, mysql_metadata, null, collation: collation)
+      else
+        described_class.new(field, default, mysql_metadata, type, null, collation)
       end
     end
 

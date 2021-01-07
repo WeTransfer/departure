@@ -74,14 +74,10 @@ module ActiveRecord
         @prepared_statements = false
       end
 
-      if ActiveRecord::VERSION::STRING >= '6.1'
-        READ_QUERY = ActiveRecord::ConnectionAdapters::AbstractAdapter.build_read_query_regexp(
+      def write_query?(sql) # :nodoc:
+        !build_read_query_regexp(
           :desc, :describe, :set, :show, :use
-        )
-        private_constant :READ_QUERY
-        def write_query?(sql) # :nodoc:
-          !READ_QUERY.match?(sql)
-        end
+        ).match?(sql)
       end
 
       def exec_delete(sql, name, binds)
@@ -143,17 +139,15 @@ module ActiveRecord
       #
       # @param table_name [String, Symbol]
       # @param options [Hash] optional
-      if ActiveRecord::VERSION::STRING >= '6.1'
-        def remove_index(table_name, column_name = nil, **options)
+      def remove_index(table_name, *args, **options)
+        column_name = args.first
+        if column_name
           return if options[:if_exists] && !index_exists?(table_name, column_name, **options)
-          index_name = index_name_for_remove(table_name, column_name, options)
-          execute "DROP INDEX #{quote_column_name(index_name)} ON #{quote_table_name(table_name)}"
-        end
-      else
-        def remove_index(table_name, options = {})
+          index_name = index_name_for_remove(table_name, column_name, **options)
+        else
           index_name = index_name_for_remove(table_name, options)
-          execute "ALTER TABLE #{quote_table_name(table_name)} DROP INDEX #{quote_column_name(index_name)}"
         end
+        execute "ALTER TABLE #{quote_table_name(table_name)} DROP INDEX #{quote_column_name(index_name)}"
       end
 
       def schema_creation

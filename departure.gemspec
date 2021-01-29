@@ -7,7 +7,7 @@ require 'departure/version'
 
 # This environment variable is set on CI to facilitate testing with multiple
 # versions of Rails.
-RAILS_DEPENDENCY_VERSION = ENV.fetch('RAILS_VERSION', ['>= 5.2.0', '< 6.1'])
+RAILS_DEPENDENCY_VERSION = ENV.fetch('RAILS_VERSION', ['>= 5.2.0', '<= 6.1'])
 
 Gem::Specification.new do |spec|
   spec.name          = 'departure'
@@ -30,6 +30,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rake', '~> 10.0'
   spec.add_development_dependency 'rspec', '~> 3.4', '>= 3.4.0'
   spec.add_development_dependency 'rspec-its', '~> 1.2'
-  spec.add_development_dependency 'byebug', '~> 8.2', '>= 8.2.1'
+  spec.add_development_dependency 'pry-byebug'
   spec.add_development_dependency 'climate_control', '~> 0.0.3'
 end

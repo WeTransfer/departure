@@ -20,10 +20,12 @@ describe ActiveRecord::ConnectionAdapters::DepartureAdapter do
     let(:collation) { double(:collation) }
 
     let(:column) do
-      if ActiveRecord::VERSION::MAJOR < 6
-        described_class.new(field, default, mysql_metadata, type, null, collation)
-      else
+      if ActiveRecord::VERSION::STRING >= "6.1"
+        described_class.new("field", "default", mysql_metadata, null, collation: "collation")
+      elsif ActiveRecord::VERSION::MAJOR == 6
         described_class.new(field, default, mysql_metadata, null, collation: collation)
+      else
+        described_class.new(field, default, mysql_metadata, type, null, collation)
       end
     end
 
@@ -99,24 +101,46 @@ describe ActiveRecord::ConnectionAdapters::DepartureAdapter do
     describe '#add_index' do
       let(:table_name) { :foo }
       let(:column_name) { :bar_id }
-      let(:options) { {} }
-      let(:sql) { 'ADD index_type INDEX `index_name` (`bar_id`)' }
+      let(:index_name) { 'index_name' }
+      let(:options) { {type: 'index_type'} }
+      let(:index_type) { options[:type].upcase }
+      let(:sql) { 'ADD index_type INDEX `index_name` (bar_id)' }
+      let(:index_options) do
+        if ActiveRecord::VERSION::STRING >= '6.1'
+          [
+            ActiveRecord::ConnectionAdapters::IndexDefinition.new(
+              table_name,
+              index_name,
+              nil,
+              [column_name],
+              **options
+            ),
+            nil,
+            false
+          ]
+        else
+          [index_name, index_type, "#{column_name}"]
+        end
+      end
+
+      let(:expected_sql) do
+        if ActiveRecord::VERSION::STRING >= '6.1'
+          "CREATE INDEX_TYPE INDEX `#{index_name}` ON `#{table_name}` (`#{column_name}`)"
+        else
+          "ALTER TABLE `#{table_name}` ADD #{index_type} INDEX `#{index_name}` (#{column_name})"
+        end
+      end
 
       before do
         allow(adapter).to(
           receive(:add_index_options)
           .with(table_name, column_name, options)
-          .and_return(['index_name', 'index_type', "`#{column_name}`"])
+          .and_return(index_options)
         )
       end
 
       it 'passes the built SQL to #execute' do
-        expect(adapter).to(
-          receive(:execute)
-          .with(
-            "ALTER TABLE `#{table_name}` ADD index_type INDEX `index_name` (`bar_id`)"
-          )
-        )
+        expect(adapter).to receive(:execute).with(expected_sql)
         adapter.add_index(table_name, column_name, options)
       end
     end

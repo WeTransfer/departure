@@ -88,8 +88,16 @@ module Departure
 
     # Capture the type of the adapter configured by the app if not already set.
     def connection_config
-      ActiveRecord::Base.connection_config.tap do |config|
+      configuration_hash.tap do |config|
         self.class.original_adapter ||= config[:adapter]
+      end
+    end
+
+    private def configuration_hash
+      if ActiveRecord::VERSION::STRING >= '6.1'
+        ActiveRecord::Base.connection_db_config.configuration_hash
+      else
+        ActiveRecord::Base.connection_config
       end
     end
   end

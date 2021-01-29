@@ -9,6 +9,14 @@ describe Departure, integration: true do
   end
 
   let(:direction) { :up }
+  let(:pool) { ActiveRecord::Base.connection_pool }
+  let(:spec_config) do
+    if ActiveRecord::VERSION::STRING >= '6.1'
+      pool.connection.instance_variable_get(:@config)
+    else
+      pool.spec.config
+    end
+  end
 
   it 'has a version number' do
     expect(Departure::VERSION).not_to be nil
@@ -51,8 +59,7 @@ describe Departure, integration: true do
 
     it 'reconnects to the database using PerconaAdapter' do
       ActiveRecord::Migrator.new(direction, migration_fixtures, ActiveRecord::SchemaMigration, 1).migrate
-      expect(ActiveRecord::Base.connection_pool.spec.config[:adapter])
-        .to eq('percona')
+      expect(spec_config[:adapter]).to eq('percona')
     end
 
     context 'when a username is provided' do
@@ -68,8 +75,7 @@ describe Departure, integration: true do
 
       it 'uses the provided username' do
         ActiveRecord::Migrator.new(direction, migration_fixtures, ActiveRecord::SchemaMigration, 1).migrate
-        expect(ActiveRecord::Base.connection_pool.spec.config[:username])
-          .to eq('root')
+        expect(spec_config[:username]).to eq('root')
       end
     end
 
@@ -85,8 +91,7 @@ describe Departure, integration: true do
 
       it 'uses root' do
         ActiveRecord::Migrator.new(direction, migration_fixtures, ActiveRecord::SchemaMigration, 1).migrate
-        expect(ActiveRecord::Base.connection_pool.spec.config[:username])
-          .to eq('root')
+        expect(spec_config[:username]).to eq('root')
       end
     end
 

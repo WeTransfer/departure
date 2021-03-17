@@ -1,4 +1,4 @@
-# Departure [![Build Status](https://travis-ci.org/departurerb/departure.svg?branch=master)](https://travis-ci.org/departurerb/departure) [![Code Climate](https://codeclimate.com/github/departurerb/departure/badges/gpa.svg)](https://codeclimate.com/github/departurerb/departure)
+# Departure [![Build Status](https://travis-ci.org/departurerb/departure.svg?branch=master)](https://travis-ci.org/departurerb/departure) [![Code Climate](https://codeclimate.com/github/departurerb/departure/badges/gpa.svg)](https://codeclimate.com/github/departurerb/departure) ![GitHub commits since latest release (by date)](https://img.shields.io/github/commits-since/departurerb/departure/latest/master?style=plastic)
 
 Departure is an **ActiveRecord connection adapter** that allows running
 **MySQL online and non-blocking DDL** through `ActiveRecord::Migration` without needing
@@ -240,4 +240,7 @@ You can consult the changelog [here](CHANGELOG.md)
 
 The gem is available as open source under the terms of the [MIT
 License](http://opensource.org/licenses/MIT).
+
+![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/departurerb/departure?style=for-the-badge)
+![GitHub issues](https://img.shields.io/github/issues/departurerb/departure?style=for-the-badge)
 

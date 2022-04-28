@@ -6,6 +6,10 @@ Please follow the format in [Keep a Changelog](http://keepachangelog.com/)
 
 ## [Unreleased]
 
+## [6.3.1] - 2022-04-28
+
+- Fix security issues caused by old versions of `railties` and `activerecord` and its dependencies
+
 ## [6.2.0] - 2020-06-23
 
 ### Added

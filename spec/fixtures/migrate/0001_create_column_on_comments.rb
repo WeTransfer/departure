@@ -4,7 +4,7 @@ class CreateColumnOnComments < ActiveRecord::Migration[5.1]
       :comments,
       :some_id_field,
       :integer,
-      { limit: 8, default: nil }
+      limit: 8, default: nil
     )
   end
 end

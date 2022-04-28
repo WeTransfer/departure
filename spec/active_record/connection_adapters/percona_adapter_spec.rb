@@ -4,7 +4,13 @@ describe ActiveRecord::ConnectionAdapters::DepartureAdapter do
   describe ActiveRecord::ConnectionAdapters::DepartureAdapter::Column do
     let(:field) { double(:field) }
     let(:default) { double(:default) }
-    let(:cast_type) { ActiveRecord::ConnectionAdapters::AbstractMysqlAdapter::MysqlString.new }
+    let(:cast_type) do
+      if defined?(ActiveRecord::ConnectionAdapters::AbstractMysqlAdapter::MysqlString)
+        ActiveRecord::ConnectionAdapters::AbstractMysqlAdapter::MysqlString.new
+      else
+        ActiveRecord::Type.lookup(:string, adapter: :mysql2)
+      end
+    end
     let(:metadata) do
       ActiveRecord::ConnectionAdapters::SqlTypeMetadata.new(
         type: cast_type.type,
@@ -20,7 +26,13 @@ describe ActiveRecord::ConnectionAdapters::DepartureAdapter do
     let(:collation) { double(:collation) }
 
     let(:column) do
-      described_class.new(field, default, mysql_metadata, type, null, collation)
+      if ActiveRecord::VERSION::STRING >= "6.1"
+        described_class.new("field", "default", mysql_metadata, null, collation: "collation")
+      elsif ActiveRecord::VERSION::MAJOR == 6
+        described_class.new(field, default, mysql_metadata, null, collation: collation)
+      else
+        described_class.new(field, default, mysql_metadata, type, null, collation)
+      end
     end
 
     describe '#adapter' do
@@ -95,24 +107,46 @@ describe ActiveRecord::ConnectionAdapters::DepartureAdapter do
     describe '#add_index' do
       let(:table_name) { :foo }
       let(:column_name) { :bar_id }
-      let(:options) { {} }
-      let(:sql) { 'ADD index_type INDEX `index_name` (`bar_id`)' }
+      let(:index_name) { 'index_name' }
+      let(:options) { {type: 'index_type'} }
+      let(:index_type) { options[:type].upcase }
+      let(:sql) { 'ADD index_type INDEX `index_name` (bar_id)' }
+      let(:index_options) do
+        if ActiveRecord::VERSION::STRING >= '6.1'
+          [
+            ActiveRecord::ConnectionAdapters::IndexDefinition.new(
+              table_name,
+              index_name,
+              nil,
+              [column_name],
+              **options
+            ),
+            nil,
+            false
+          ]
+        else
+          [index_name, index_type, "#{column_name}"]
+        end
+      end
+
+      let(:expected_sql) do
+        if ActiveRecord::VERSION::STRING >= '6.1'
+          "ALTER TABLE `#{table_name}` ADD #{index_type} INDEX `#{index_name}` (`#{column_name}`)"
+        else
+          "ALTER TABLE `#{table_name}` ADD #{index_type} INDEX `#{index_name}` (#{column_name})"
+        end
+      end
 
       before do
         allow(adapter).to(
           receive(:add_index_options)
           .with(table_name, column_name, options)
-          .and_return(['index_name', 'index_type', "`#{column_name}`"])
+          .and_return(index_options)
         )
       end
 
       it 'passes the built SQL to #execute' do
-        expect(adapter).to(
-          receive(:execute)
-          .with(
-            "ALTER TABLE `#{table_name}` ADD index_type INDEX `index_name` (`bar_id`)"
-          )
-        )
+        expect(adapter).to receive(:execute).with(expected_sql)
         adapter.add_index(table_name, column_name, options)
       end
     end
@@ -128,6 +162,11 @@ describe ActiveRecord::ConnectionAdapters::DepartureAdapter do
           .with(table_name, options)
           .and_return('index_name')
         )
+        allow(adapter).to(
+          receive(:index_name_for_remove)
+          .with(table_name, nil, options)
+          .and_return('index_name')
+        )
       end
 
       it 'passes the built SQL to #execute' do
@@ -135,7 +174,7 @@ describe ActiveRecord::ConnectionAdapters::DepartureAdapter do
           receive(:execute)
           .with("ALTER TABLE `#{table_name}` DROP INDEX `index_name`")
         )
-        adapter.remove_index(table_name, options)
+        adapter.remove_index(table_name, **options)
       end
     end
   end

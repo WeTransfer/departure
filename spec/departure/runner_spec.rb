@@ -11,7 +11,8 @@ describe Departure::Runner do
   let(:config) do
     instance_double(
       Departure::Configuration,
-      error_log_path: 'departure_error.log'
+      error_log_path: 'departure_error.log',
+      redirect_stderr: true,
     )
   end
 
@@ -39,7 +40,7 @@ describe Departure::Runner do
 
     before do
       allow(Departure::Command)
-        .to receive(:new).with(command_line, config.error_log_path, logger)
+        .to receive(:new).with(command_line, config.error_log_path, logger, config.redirect_stderr)
         .and_return(cmd)
     end
 

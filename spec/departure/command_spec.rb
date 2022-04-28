@@ -9,8 +9,9 @@ describe Departure::Command do
         Departure::Logger, write: true, say: true, write_no_newline: true
       )
     end
+    let(:redirect_stderr) { true }
 
-    let(:runner) { described_class.new(command, error_log_path, logger) }
+    let(:runner) { described_class.new(command, error_log_path, logger, redirect_stderr) }
 
     let(:temp_file) do
       file = Tempfile.new('faked_stdout')
@@ -60,6 +61,16 @@ describe Departure::Command do
       runner.run
 
       expect(logger).to have_received(:write_no_newline).with('hello world\\ntodo roto')
+    end
+
+    context 'when not redirecting stderr' do
+      let(:expected_command) { "#{command} 2>&1" }
+      let(:redirect_stderr) { false }
+
+      it 'executes the expected command' do
+        runner.run
+        expect(Open3).to have_received(:popen3).with(expected_command)
+      end
     end
 
     context 'on failure' do

@@ -1,5 +1,3 @@
-# Taken from here: https://github.com/departurerb/departure/pull/32
-
 module Departure
   class ConnectionBase < ActiveRecord::Base
     def self.establish_connection(config = nil)
@@ -8,4 +6,6 @@ module Departure
       end
     end
   end
+
+  class OriginalAdapterConnection < ConnectionBase; end
 end

@@ -1,14 +1,23 @@
 require 'spec_helper'
+require 'fixtures/migrate/0022_add_timestamp_on_comments'
 
 # TODO: Handle #change_table syntax
 describe Departure, integration: true do
   class Comment < ActiveRecord::Base; end
 
-  let(:migration_fixtures) do
-    ActiveRecord::MigrationContext.new([MIGRATION_FIXTURES]).migrations
-  end
+  let(:migration_paths) { [MIGRATION_FIXTURES] }
+  let(:migration_context) { ActiveRecord::MigrationContext.new(migration_paths, ActiveRecord::SchemaMigration) }
+  let(:migration_fixtures) { migration_context.migrations }
 
   let(:direction) { :up }
+  let(:pool) { ActiveRecord::Base.connection_pool }
+  let(:spec_config) do
+    if ActiveRecord::VERSION::STRING >= '6.1'
+      pool.connection.instance_variable_get(:@config)
+    else
+      pool.spec.config
+    end
+  end
 
   it 'has a version number' do
     expect(Departure::VERSION).not_to be nil
@@ -25,7 +34,7 @@ describe Departure, integration: true do
 
       it "doesn't send the output to stdout" do
         expect do
-          ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
+          ActiveRecord::Migrator.new(direction, migration_fixtures, ActiveRecord::SchemaMigration, 1).migrate
         end.to_not output.to_stdout
       end
     end
@@ -40,7 +49,7 @@ describe Departure, integration: true do
 
       it 'sends the output to stdout' do
         expect do
-          ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
+          ActiveRecord::Migrator.new(direction, migration_fixtures, ActiveRecord::SchemaMigration, 1).migrate
         end.to output.to_stdout
       end
     end
@@ -50,9 +59,8 @@ describe Departure, integration: true do
     let(:db_config) { Configuration.new }
 
     it 'reconnects to the database using PerconaAdapter' do
-      ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
-      expect(ActiveRecord::Base.connection_pool.spec.config[:adapter])
-        .to eq('percona')
+      ActiveRecord::Migrator.new(direction, migration_fixtures, ActiveRecord::SchemaMigration, 1).migrate
+      expect(spec_config[:adapter]).to eq('percona')
     end
 
     context 'when a username is provided' do
@@ -67,9 +75,8 @@ describe Departure, integration: true do
       end
 
       it 'uses the provided username' do
-        ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
-        expect(ActiveRecord::Base.connection_pool.spec.config[:username])
-          .to eq('root')
+        ActiveRecord::Migrator.new(direction, migration_fixtures, ActiveRecord::SchemaMigration, 1).migrate
+        expect(spec_config[:username]).to eq('root')
       end
     end
 
@@ -84,9 +91,8 @@ describe Departure, integration: true do
       end
 
       it 'uses root' do
-        ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
-        expect(ActiveRecord::Base.connection_pool.spec.config[:username])
-          .to eq('root')
+        ActiveRecord::Migrator.new(direction, migration_fixtures, ActiveRecord::SchemaMigration, 1).migrate
+        expect(spec_config[:username]).to eq('root')
       end
     end
 
@@ -95,14 +101,14 @@ describe Departure, integration: true do
       xit 'patches it to use regular Rails migration methods' do
         expect(Departure::Lhm::Fake::Adapter)
           .to receive(:new).and_return(true)
-        ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
+        ActiveRecord::Migrator.new(direction, migration_fixtures, ActiveRecord::SchemaMigration, 1).migrate
       end
     end
 
     context 'when there is no LHM' do
       xit 'does not patch it' do
         expect(Departure::Lhm::Fake).not_to receive(:patching_lhm)
-        ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
+        ActiveRecord::Migrator.new(direction, migration_fixtures, ActiveRecord::SchemaMigration, 1).migrate
       end
     end
   end
@@ -115,7 +121,7 @@ describe Departure, integration: true do
 
       it 'raises and halts the execution' do
         expect do
-          ActiveRecord::Migrator.run(direction, migration_fixtures, version)
+          ActiveRecord::Migrator.run(direction, migration_fixtures, ActiveRecord::SchemaMigration, version)
         end.to raise_error do |exception|
           exception.cause == ActiveRecord::StatementInvalid
         end
@@ -132,7 +138,7 @@ describe Departure, integration: true do
 
       it 'raises and halts the execution' do
         expect do
-          ActiveRecord::Migrator.run(direction, migration_fixtures, version)
+          ActiveRecord::Migrator.run(direction, migration_fixtures, ActiveRecord::SchemaMigration, version)
         end.to raise_error do |exception|
           exception.cause == Departure::SignalError
         end
@@ -146,7 +152,7 @@ describe Departure, integration: true do
     it 'raises and halts the execution' do
       expect do
         ClimateControl.modify PATH: '' do
-          ActiveRecord::Migrator.run(direction, migration_fixtures, version)
+          ActiveRecord::Migrator.run(direction, migration_fixtures, ActiveRecord::SchemaMigration, version)
         end
       end.to raise_error do |exception|
         exception.cause == Departure::CommandNotFoundError
@@ -164,11 +170,11 @@ describe Departure, integration: true do
       it 'runs pt-online-schema-change with the specified arguments' do
         expect(Departure::Command)
           .to receive(:new)
-          .with(/--chunk-time=1/, anything, anything)
+          .with(/--chunk-time=1/, anything, anything, anything)
           .and_return(command)
 
         ClimateControl.modify PERCONA_ARGS: '--chunk-time=1' do
-          ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
+          ActiveRecord::Migrator.new(direction, migration_fixtures, ActiveRecord::SchemaMigration, 1).migrate
         end
       end
     end
@@ -177,11 +183,11 @@ describe Departure, integration: true do
       it 'runs pt-online-schema-change with the specified arguments' do
         expect(Departure::Command)
           .to receive(:new)
-          .with(/--chunk-time=1 --max-lag=2/, anything, anything)
+          .with(/--chunk-time=1 --max-lag=2/, anything, anything, anything)
           .and_return(command)
 
         ClimateControl.modify PERCONA_ARGS: '--chunk-time=1 --max-lag=2' do
-          ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
+          ActiveRecord::Migrator.new(direction, migration_fixtures, ActiveRecord::SchemaMigration, 1).migrate
         end
       end
     end
@@ -190,13 +196,21 @@ describe Departure, integration: true do
       it 'runs pt-online-schema-change with the user specified value' do
         expect(Departure::Command)
           .to receive(:new)
-          .with(/--alter-foreign-keys-method=drop_swap/, anything, anything)
+          .with(/--alter-foreign-keys-method=drop_swap/, anything, anything, anything)
           .and_return(command)
 
         ClimateControl.modify PERCONA_ARGS: '--alter-foreign-keys-method=drop_swap' do
-          ActiveRecord::Migrator.new(direction, migration_fixtures, 1).migrate
+          ActiveRecord::Migrator.new(direction, migration_fixtures, ActiveRecord::SchemaMigration, 1).migrate
         end
       end
+    end
+  end
+
+  context 'when there are migrations that do not use departure' do
+    it 'uses Departure::OriginalConnectionAdapter' do
+      expect(Departure::OriginalAdapterConnection).to receive(:establish_connection)
+
+      migration_context.run(direction, 29) # DisableDeparture
     end
   end
 end

@@ -15,6 +15,7 @@ module Departure
       @cli_generator = cli_generator
       @mysql_adapter = mysql_adapter
       @error_log_path = config.error_log_path
+      @redirect_stderr = config.redirect_stderr
     end
 
     # Executes the passed sql statement using pt-online-schema-change for ALTER
@@ -44,12 +45,12 @@ module Departure
     # @param command_line [String]
     # @return [Boolean]
     def execute(command_line)
-      Command.new(command_line, error_log_path, logger).run
+      Command.new(command_line, error_log_path, logger, redirect_stderr).run
     end
 
     private
 
-    attr_reader :logger, :cli_generator, :mysql_adapter, :error_log_path
+    attr_reader :logger, :cli_generator, :mysql_adapter, :error_log_path, :redirect_stderr
 
     # Checks whether the sql statement is an ALTER TABLE
     #
